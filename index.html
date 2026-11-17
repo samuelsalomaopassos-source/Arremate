@@ -8692,8 +8692,13 @@ const keyFor=(code,pw)=>pw?sha("arremate:"+code+":"+pw):Promise.resolve("open");
 function tmo(p,ms,msg){let t;return Promise.race([p,new Promise(function(_,rej){t=setTimeout(function(){rej(new Error(msg||"Sem resposta do servidor. Confira a internet e tente de novo."));},ms);})]).then(function(v){clearTimeout(t);return v;},function(e){clearTimeout(t);throw e;});}
 function authUid(){return tmo(new Promise(function(res,rej){const off=FB.auth.onAuthStateChanged(function(u){off();if(u)res(u.uid);else FB.auth.signInAnonymously().then(function(c){res(c.user.uid);}).catch(rej);});}),12000,"Não consegui conectar ao servidor. Atualize a página e tente de novo.");}
 function stp(name,p,ms){ON.step=name;try{render();}catch(e){}return tmo(Promise.resolve(p),ms||10000,"Travou em: "+name+". Sua conexão pode estar bloqueando o servidor (tente trocar Wi-Fi/dados ou abrir no Chrome) e tente de novo.");}
-function onlineCheck(){return new Promise(function(res,rej){let done=false;const r=FB.db.ref(".info/connected");const h=r.on("value",function(sn){if(sn.val()===true&&!done){done=true;r.off("value",h);res(true);}});setTimeout(function(){if(!done){done=true;r.off("value",h);rej(new Error("Sem conexão com o servidor do jogo. Troque Wi-Fi/dados ou abra no Chrome e tente de novo."));}},9000);});}
-function onGuard(fn){ON.busy=false;return tmo(fn(),25000,"Demorou demais. Confira a internet e tente de novo.").catch(function(e){ON.busy=false;ON.err=String(e&&e.message||e);try{render();}catch(_){}});}
+function onlineCheck(){return new Promise(function(res,rej){let done=false,lp=false;const I=FB.db.INTERNAL||null;
+  function toLP(){if(lp||!I||!I.forceLongPolling)return;lp=true;try{I.forceLongPolling();FB.db.goOffline();FB.db.goOnline();}catch(e){}try{localStorage.setItem("arremate.lp","1");}catch(e){}}
+  try{if(localStorage.getItem("arremate.lp")==="1")toLP();}catch(e){}
+  const r=FB.db.ref(".info/connected");const h=r.on("value",function(sn){if(sn.val()===true&&!done){done=true;r.off("value",h);res(true);}});
+  setTimeout(function(){if(!done)toLP();},5000);
+  setTimeout(function(){if(!done){done=true;r.off("value",h);rej(new Error("Sem conexão com o servidor do jogo. Troque Wi-Fi/dados ou abra no Chrome e tente de novo."));}},22000);});}
+function onGuard(fn){ON.busy=false;return tmo(fn(),48000,"Demorou demais. Confira a internet e tente de novo.").catch(function(e){ON.busy=false;ON.err=String(e&&e.message||e);try{render();}catch(_){}});}
 const srvNow=()=>Date.now()+ON.skew;
 function onHumans(){return Object.keys(ON.seats).sort().filter(k=>ON.seats[k]&&ON.seats[k].uid).map(k=>({seat:k,nick:ON.seats[k].nick,on:ON.seats[k].on!==false}));}
 function onMapFor(g){const m={},n=g?g.players.filter(p=>!p.bot).length:99;onHumans().forEach(function(h,i){if(i<n)m[h.seat]="p"+i;});return m;}
@@ -8728,7 +8733,7 @@ async function onCreate(){
   if(!FB){ON.err="Online indisponível neste navegador. Abra o link do site oficial.";render();return;}
   ON.busy=true;ON.err="";ON.step="";render();
   try{
-    const uid=await stp("login",authUid(),14000);await stp("conexão",onlineCheck(),11000);let code=null,key=null;
+    const uid=await stp("login",authUid(),14000);await stp("conexão",onlineCheck(),24000);let code=null,key=null;
     for(let t=0;t<8&&!code;t++){
       const c=genCode(),k=await keyFor(c,pw);
       const tx=await stp("criar código",FB.db.ref("pub/"+c).transaction(function(cu){if(cu&&cu.t&&Date.now()-cu.t<DAY)return;return {pw:!!pw,t:FB.ts};}),12000);
@@ -8748,7 +8753,7 @@ async function onJoin(){
   if(!FB){ON.err="Online indisponível neste navegador. Abra o link do site oficial.";render();return;}
   ON.busy=true;ON.err="";ON.step="";render();
   try{
-    const uid=await stp("login",authUid(),14000);await stp("conexão",onlineCheck(),11000);
+    const uid=await stp("login",authUid(),14000);await stp("conexão",onlineCheck(),24000);
     const pub=(await stp("procurar sala",FB.db.ref("pub/"+code).once("value"),12000)).val();
     if(!pub||Date.now()-pub.t>DAY)throw new Error("Sala não encontrada.");
     if(pub.pw&&!pw)throw new Error("Essa sala pede senha.");
