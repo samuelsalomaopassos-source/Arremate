@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com; media-src 'none'; object-src 'none'; frame-src https://arremate-jogo.firebaseapp.com https://*.firebaseio.com; base-uri 'none'; form-action 'none'">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com; media-src 'none'; object-src 'none'; frame-src https://arremate-jogo.firebaseapp.com https://*.firebaseio.com; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Arremate</title>
@@ -5202,9 +5201,13 @@ function futBest(ids,formId){
 }
 /* partida: gols por Poisson a partir de ataque contra defesa; empate vai para os pênaltis */
 /* postura de cada time: recuado ataca menos e sofre menos; no ataque cria mais e deixa a defesa exposta */
+const FEST={eq:{nome:"Equilibrado",sub:"não aposta em nada",of:1,df:1},pos:{nome:"Posse de bola",sub:"toca, controla o jogo e cansa o rival",of:1.05,df:.95},cnt:{nome:"Contra-ataque",sub:"fecha atrás e sai em velocidade",of:.93,df:.9,ct:1.2},pre:{nome:"Pressão alta",sub:"sufoca a saída, mas deixa espaço atrás",of:1.12,df:1.07},ret:{nome:"Retranca",sub:"muralha na defesa e bola longa",of:.78,df:.78},pon:{nome:"Jogo pelas pontas",sub:"abre o campo e cruza na área",of:1.08,df:1.03}};
+const FESTL=["eq","pos","cnt","pre","ret","pon"];
+const FESTX={eq:["volta ao jogo equilibrado."],pos:["manda o time tocar a bola e controlar o jogo.","pede posse de bola: ninguém chuta no desespero."],cnt:["manda esperar atrás e sair no contra-ataque.","pede o time fechado e a bola rápida nos espaços."],pre:["manda marcar alto, sufocar a saída de bola.","pede pressão total no campo do rival."],ret:["manda o time se fechar na retranca.","pede ferrolho: todo mundo atrás da linha da bola."],pon:["manda abrir o jogo pelas pontas e cruzar.","pede bola nos lados e cruzamento na área."]};
+const botSty=(id)=>{let h=0;String(id).split("").forEach(c=>h=(h*31+c.charCodeAt(0))>>>0);h=(h+((Math.random()*1e6)|0))%FESTL.length;return FESTL[h];};
 const FTAT={rec:{nome:"Recuar",of:.66,df:.7},eq:{nome:"Equilibrado",of:1,df:1},ata:{nome:"Ataque total",of:1.38,df:1.32}};
 function futMatch(A,B,seed,opt){
-  opt=opt||{};const campo=!!(A.e.form&&A.e.form.campo),EC=campo?40/90:1,desde=(opt.desde||0)*EC,prev=(opt.prev||[]).map(e=>campo?Object.assign({},e,{m:e.m*EC,_m0:e.m}):e),tat=opt.tat||["eq","eq"],frac=Math.max(0,(40-desde)/40),dr=clamp(opt.drama||0,0,1);
+  opt=opt||{};const campo=!!(A.e.form&&A.e.form.campo),EC=campo?40/90:1,desde=(opt.desde||0)*EC,prev=(opt.prev||[]).map(e=>campo?Object.assign({},e,{m:e.m*EC,_m0:e.m}):e),tat=opt.tat||["eq","eq"],sty=opt.sty||["eq","eq"],fo=i=>FTAT[tat[i]].of*FEST[sty[i]||"eq"].of*(FEST[sty[i]||"eq"].ct&&tat[1-i]==="ata"?FEST[sty[i]||"eq"].ct:1),fd=i=>FTAT[tat[i]].df*FEST[sty[i]||"eq"].df,frac=Math.max(0,(40-desde)/40),dr=clamp(opt.drama||0,0,1);
   let s=seed|0;const R=()=>{s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
   const pick=a=>a[Math.floor(R()*a.length)];
   const pois=l=>{let k=0,p=Math.exp(-l),c=p,u=R();while(u>c&&k<15){k++;p*=l/k;c+=p;}return k;};
@@ -5219,13 +5222,13 @@ function futMatch(A,B,seed,opt){
   const minuG=()=>{const lo=Math.max(desde+1,31);return dr&&lo<40&&R()<.38*dr?lo+Math.floor(R()*(41-lo)):minu();};
   [0,1].forEach(function(i){
     const t=T[i],o=T[1-i],off=.55*t.e.ataque+.45*t.e.criacao,def=.6*o.e.defesa+.4*o.e.gol;
-    const lam=clamp((campo?1.17:2.6)*Math.exp((off-def)*(1-.5*dr)/(campo?22:14)),campo?.2:.5,campo?2.6:7)*Math.pow(.72,menos[i])*Math.pow(1.25,menos[1-i])*frac*FTAT[tat[i]].of*FTAT[tat[1-i]].df,n=pois(lam);gols[i]+=n;
+    const lam=clamp((campo?1.17:2.6)*Math.exp((off-def)*(1-.5*dr)/(campo?22:14)),campo?.2:.5,campo?2.6:7)*Math.pow(.72,menos[i])*Math.pow(1.25,menos[1-i])*frac*fo(i)*fd(1-i),n=pois(lam);gols[i]+=n;
     for(let k=0;k<n;k++){
       const lin=jog(t).filter(x=>x.pos!=="GOL"),sc=wpick(lin,x=>WS[x.pos]*(fv(x.it,"dec")/100+.3)),cand=lin.filter(x=>x!==sc),as=R()<.7&&cand.length?wpick(cand,x=>fv(x.it,"vis")/100+.4):null;
       const S=sc.it.t,Aa=as?as.it.t:null;
       ev.push({m:minuG(),s:i,t:"gol",txt:pick(campo?(Aa?["GOOOL! "+Aa+" levanta na área e "+S+" cabeceia firme, no canto!","GOOOL! "+Aa+" lança nas costas da zaga e "+S+" bate cruzado.","GOOOL! Jogada pela ponta: "+Aa+" cruza e "+S+" desvia para o gol.","GOOOL! Escanteio de "+Aa+" e "+S+" sobe sozinho para cabecear!","GOOOL! "+Aa+" dá um passe açucarado e "+S+" só empurra para a rede.","GOOOL! "+Aa+" rouba no meio, toca para "+S+", que bate de primeira.","GOOOL! "+S+" recebe de "+Aa+", ajeita e bate no cantinho."]:["GOOOL! "+S+" cobra a falta no ângulo, sem chance para o goleiro!","GOOOL! "+S+" sobe mais que a zaga e cabeceia firme.","GOOOL! De fora da área! "+S+" bate de primeira e a bola vai no canto.","GOOOL! "+S+" invade a área e toca na saída do goleiro.","GOOOL! "+S+" aproveita o rebote e empurra para o fundo da rede.","GOOOL! "+S+" dribla o zagueiro e finaliza rasteiro."]):Aa?["GOOOL! "+S+" recebe de "+Aa+" e bate cruzado.","GOOOL! "+Aa+" rouba a bola e serve "+S+", que só empurra.","GOOOL! Tabela rápida entre "+Aa+" e "+S+", e a bola morre no canto.","GOOOL! "+Aa+" cruza rasteiro e "+S+" chega de carrinho."]:["GOOOL! "+S+" gira em cima do marcador e finaliza no canto.","GOOOL! Que pintura de "+S+", de bico, no estilo futsal!","GOOOL! "+S+" arrisca de longe e a bola entra no ângulo.","GOOOL! "+S+" dribla dois e toca na saída do goleiro."]),q:S,a:Aa});
     }
-    const nc=Math.round((2+pois(2.2))*(campo?2.1:1)*frac*Math.sqrt(FTAT[tat[i]].of*FTAT[tat[1-i]].df));
+    const nc=Math.round((2+pois(2.2))*(campo?2.1:1)*frac*Math.sqrt(fo(i)*fd(1-i)));
     for(let k=0;k<nc;k++){
       let txt="",dfz=0,atir=null,gol0=null;
       for(let tr=0;tr<5;tr++){
@@ -5238,7 +5241,7 @@ function futMatch(A,B,seed,opt){
     }
     if(campo){
       const lin=jog(t),opp=jog(o),tk=[],Pp=(L,ps)=>{const nt=x=>tk.indexOf(x.it.t)<0,a=L.filter(x=>ps.indexOf(x.pos)>=0&&nt(x)),b=L.filter(x=>x.pos!=="GOL"&&nt(x)),c=L.filter(nt),n=(a.length?pick(a):b.length?pick(b):c.length?pick(c):pick(L)).it.t;tk.push(n);return n;},gO=gk(o)||"o goleiro",used={};
-      const nF=Math.round((10+pois(3.5))*frac*Math.sqrt(FTAT[tat[i]].of));
+      const nF=Math.round((10+pois(3.5))*frac*Math.sqrt(fo(i)));
       for(let k=0;k<nF;k++){
         tk.length=0;const att=Pp(lin,["ATA","PNT","MEI"]),pnt=Pp(lin,["PNT","MEI","LAT"]),mid=Pp(lin,["MEI","VOL"]),vol=Pp(lin,["VOL","MEI","ZAG"]),zag=Pp(lin,["ZAG","LAT"]),lat=Pp(lin,["LAT","PNT"]),dO=Pp(opp,["ZAG","LAT","VOL"]),mO=Pp(opp,["MEI","VOL"]),aO=Pp(opp,["ATA","PNT","MEI"]);
         const TP=["Escanteio cobrado por "+mid+": "+att+" sobe, mas cabeceia por cima.","Escanteio na área e "+dO+" afasta de cabeça.","Falta de "+dO+" em "+att+" perto da área. "+mid+" levanta na área e a zaga rebate.","Bandeirinha levanta: "+att+" estava impedido.","Lateral cobrado rápido por "+lat+", e a jogada continua pela ponta.","Bola longa de "+zag+" para "+att+", que domina, mas "+gO+" sai e fica com a bola.","Belo drible de "+pnt+" em "+dO+", que acaba derrubando o rival.","Chute de longe de "+mid+", a bola sobe demais.","Chute de "+att+" é bloqueado por "+dO+".","Desarme de "+vol+", que sai tocando para "+mid+".","Pressão na saída de bola: "+att+" rouba, mas o árbitro marca falta.","Posse de bola: "+mid+" troca passes com "+vol+" e espera o espaço.","Cruzamento de "+lat+" cortado por "+dO+".","Contra-ataque! "+pnt+" arranca, mas "+dO+" chega junto e tira a bola.","Cabeçada de "+att+" passa por cima do travessão.","Tiro de meta para "+gO+", que rebate longe.","Jogo parado: "+zag+" fica no chão, recebe atendimento e segue em campo.","Falta dura de "+dO+" em "+mid+"; o árbitro conversa com o jogador.","Passe açucarado de "+mid+" para "+att+", que mata no peito e perde o tempo da finalização.","A zaga afasta o perigo: "+zag+" dá um chutão para frente.","Triangulação entre "+mid+", "+pnt+" e "+att+" pela esquerda, mas "+dO+" intercepta.","Linha de passe fechada: "+mO+" tenta sair jogando e "+vol+" aperta a marcação.","Lançamento de "+vol+" nas costas da defesa, e "+gO+" sai da área para cortar.","Time se instala no campo de ataque e "+pnt+" cava mais um escanteio.","Jogada ensaiada de bola parada, mas "+dO+" fica com a sobra.","Chapéu de "+att+" em "+dO+", e o estádio vibra!","Falta de "+aO+" em "+zag+" no meio-campo; "+zag+" se levanta e segue.","Tempo de bola parada: o árbitro pede calma aos jogadores."];
@@ -5331,11 +5334,12 @@ const FTATX={rec:["manda o time recuar e fechar a defesa.","pede para todo mundo
 function futReplan(g,j,mi,extra){
   if(mi>=j.ev.length)return 0;
   const prev=j.ev.slice(0,mi).concat(extra||[]),F0=g.fut,desde=Math.max(prev.length?prev[prev.length-1].m:0,F0&&F0.modo==="auto"&&typeof F0.cl==="number"?Math.floor(F0.cl):0);
-  const m=futMatch(futTeam(g,pl(g,j.a)),futTeam(g,pl(g,j.b)),(Math.random()*1e9)|0,{desde:desde,prev:prev,tat:j.tat||["eq","eq"],drama:j.drama!=null?j.drama:futDrama(j.fase)});
+  const m=futMatch(futTeam(g,pl(g,j.a)),futTeam(g,pl(g,j.b)),(Math.random()*1e9)|0,{desde:desde,prev:prev,tat:j.tat||["eq","eq"],sty:j.sty||["eq","eq"],drama:j.drama!=null?j.drama:futDrama(j.fase)});
   j.gA=m.gA;j.gB=m.gB;j.ev=m.ev;j.pen=m.pen;j.venc=m.venc;return (extra||[]).length;
 }
 const futHumano=p=>!!p&&!p.bot&&!p.cv;
 /* bot e convidados: perdendo no fim, vão para o ataque; ganhando no fim, recuam */
+function futEstEv(g,j,s,v,m){const p=pl(g,s?j.b:j.a),a=FESTX[v];return {m:m,s:s,t:"tat",txt:"O técnico de "+p.name+" "+a[Math.floor(Math.random()*a.length)]};}
 function futTatEv(g,j,s,v,m){const p=pl(g,s?j.b:j.a);return {m:m,s:s,t:"tat",txt:"O técnico de "+p.name+" "+FTATX[v][Math.floor(Math.random()*2)]};}
 function futBotTat(g,j,mi){
   const vis=j.ev.slice(0,mi),mr=vis.length?vis[vis.length-1].m:0,m=mr*(j.campo?40/90:1);if(mi>=j.ev.length)return;
@@ -5347,7 +5351,7 @@ function futBotTat(g,j,mi){
   if(mudou)futReplan(g,j,mi,mudou);
 }
 const futDrama=f=>/^Final$|· Final$/.test(f||"")?1:/Semifinal/.test(f||"")?.65:/3º lugar/.test(f||"")?.35:0;
-function futJogo(g,pa,pb,fase){const dr=futDrama(fase),ta=futTeam(g,pa),m=futMatch(ta,futTeam(g,pb),(Math.random()*1e9)|0,{drama:dr});return {a:pa.id,b:pb.id,gA:m.gA,gB:m.gB,ev:m.ev,pen:m.pen,venc:m.venc,fase:fase||"",tat:["eq","eq"],drama:dr,campo:!!ta.e.form.campo};}
+function futJogo(g,pa,pb,fase){const sty=p=>{const e=g.fut&&g.fut.esc&&g.fut.esc[p.id];return (e&&e.sty)||(p.bot||!e?botSty(p.id):"eq");},sy=[sty(pa),sty(pb)],dr=futDrama(fase),ta=futTeam(g,pa),m=futMatch(ta,futTeam(g,pb),(Math.random()*1e9)|0,{drama:dr,sty:sy});return {a:pa.id,b:pb.id,gA:m.gA,gB:m.gB,ev:m.ev,pen:m.pen,venc:m.venc,fase:fase||"",tat:["eq","eq"],sty:sy,drama:dr,campo:!!ta.e.form.campo};}
 function futPlay(g){
   const ps=g.players,jogos=[];
   if(g.fut.formato==="copa"){
@@ -5391,6 +5395,7 @@ function vEscal(g){
   const nat=e.sl.filter(x=>x.it).map(x=>{const nt=futNaturais(x.it,cp);return '<li><b>'+esc(x.it.t)+'</b> <span class="ovrn t'+corT(fv(x.it,"ea")/10)+'">'+Math.round(fv(x.it,"ea"))+'</span> <span class="muted">'+esc(zNome(x.pos,x.lado))+(nt.length?' · rende bem de '+esc(nt.join(", ")):"")+'</span>'+(fitOf(x.it,x.pos)<.5?' <em class="fora">fora de posição</em>':"")+'</li>';}).join("");
   return top('<span class="mono">'+esc(g.nome)+'</span>')+'<main><p class="mono">Escalação · '+(F.vez+1)+' de '+ps.length+'</p><h1 class="h-xl" style="color:'+p.color+'">'+esc(p.name)+'</h1><p class="lead muted" style="margin-top:12px;max-width:62ch">Escolha uma formação pronta ou monte a sua: <b>arraste</b> cada jogador pel'+(cp?"o campo":"a quadra")+'. A posição muda conforme o setor, como no FIFA: '+(cp?"um meia arrastado para o canto direito vira meia direita, mais atrás vira lateral direito e lá na frente vira ponta direita.":"um meia arrastado para o canto direito vira ala direita, e lá na frente vira ponta direita.")+' Toque em dois jogadores para trocar um pelo outro. Fora da posição natural, o jogador rende menos (aparece em vermelho).</p>'
    +'<div class="field" style="margin-top:18px"><span class="mono">Formação</span>'+forms+'</div>'
+   +'<div class="field" style="margin-top:18px"><span class="mono">Estilo de jogo</span><div class="seg segforms" role="group">'+FESTL.map(k=>'<button type="button" aria-pressed="'+((es.sty||"eq")===k)+'" data-act="fesc" data-v="'+k+'">'+FEST[k].nome+'<small>'+FEST[k].sub+'</small></button>').join("")+'</div><p class="hint" style="margin-top:8px">Dá para trocar de estilo durante a partida.</p></div>'
    +'<div class="escw">'+quadra(e,F.sel,true,p.color)+'<div>'+futSetores(e)+'<ul class="fnat">'+nat+'</ul><p class="hint" style="margin-top:12px">'+(cp?"Menos de três na defesa (zagueiros e laterais) abre buracos atrás, time sem zagueiro sofre muito, e sem centroavante nem ponta o ataque some. Goleiro de verdade no gol faz muita diferença. ":"Setor vazio ou gente demais no mesmo setor custa caro: sem ninguém atrás a defesa sofre, e três ou mais na frente deixam o meio aberto. Goleiro de verdade no gol faz muita diferença. No goleiro-linha o ataque cresce, mas o gol fica vazio. ")+'Capitão com liderança alta e jogadores do mesmo país dão bônus.</p><div class="reveal-bar"><button class="btn ghost" data-act="fauto">Melhor escalação automática</button></div></div></div>'
    +'<div class="reveal-bar"><button class="btn primary lg" data-act="fok">Confirmar escalação →</button></div></main>';
 }
@@ -5497,7 +5502,7 @@ function vPartida(g){
   const nt=F.modo==null?null:futNotas(g,j,mi,pi,fim);
   const TT=j.tat||["eq","eq"],qA=quadraJogo(ea,0,st,hls,fim,nt,A.color,F.modo==null?"eq":TT[0]),qB=quadraJogo(eb,1,st,hls,fim,nt,B.color,F.modo==null?"eq":TT[1]);
   const velSeg='<div class="seg fvel" role="group" aria-label="Velocidade">'+FVEL.map(v=>'<button type="button" aria-pressed="'+(F.vel===v[0])+'" data-act="fvel" data-v="'+v[0]+'">'+v[1]+'</button>').join("")+'</div>';
-  const tatCtl=(p,i)=>{const v=TT[i]||"eq";if(F.modo==null)return "";if(fim||!futHumano(p)||mi>=evs.length)return '<p class="ftat-x mono">'+FTAT[v].nome+'</p>';return '<div class="seg ftat" role="group" aria-label="Postura do time de '+esc(p.name)+'">'+[["rec","⤓ Recuar"],["eq","Equilibrado"],["ata","⤒ Ataque"]].map(o=>'<button type="button" aria-pressed="'+(v===o[0])+'" data-act="ftat" data-s="'+i+'" data-v="'+o[0]+'">'+o[1]+'</button>').join("")+'</div>';};
+  const tatCtl=(p,i)=>{const v=TT[i]||"eq";if(F.modo==null)return "";if(fim||!futHumano(p)||mi>=evs.length)return '<p class="ftat-x mono">'+FTAT[v].nome+" · "+FEST[(j.sty||[])[i]||"eq"].nome+'</p>';var sv=(j.sty||[])[i]||"eq";var est='<div class="seg ftat fest" role="group" aria-label="Estilo de jogo de '+esc(p.name)+'">'+FESTL.map(k=>'<button type="button" aria-pressed="'+(sv===k)+'" data-act="fsty" data-s="'+i+'" data-v="'+k+'">'+FEST[k].nome+'</button>').join("")+'</div>';return est+'<div class="seg ftat" role="group" aria-label="Postura do time de '+esc(p.name)+'">'+[["rec","⤓ Recuar"],["eq","Equilibrado"],["ata","⤒ Ataque"]].map(o=>'<button type="button" aria-pressed="'+(v===o[0])+'" data-act="ftat" data-s="'+i+'" data-v="'+o[0]+'">'+o[1]+'</button>').join("")+'</div>';};
   const esc2=(p,e,q)=>{const i=p===A?0:1;return '<div class="fqj" style="--pc:'+p.color+'"><p class="mono" style="color:'+p.color+'">'+esc(p.name)+'</p>'+q+tatCtl(p,i)+'</div>';};
   const quadras=(c)=>'<div class="fjogo">'+esc2(A,ea,qA)+'<div class="fmeio">'+c+'</div>'+esc2(B,eb,qB)+'</div>';
   let corpo="",bar="";
@@ -7564,7 +7569,7 @@ const GRPPOS={Goleiro:"G",Zagueiro:"D",Lateral:"D",Volante:"D","Meio-campista":"
 const GRPF={Goleiro:"G",Zagueiro:"Z",Lateral:"L",Volante:"M","Meio-campista":"M",Meia:"M","Meia-atacante":"M",Ponta:"A",Atacante:"A"};
 const grpOf=(id,Q)=>((Q&&Q.Z!==undefined?GRPF:GRPPOS)[posOf(ITEMS[id])])||"M";
 const cnt0=Q=>{const c={};Object.keys(Q).forEach(k=>c[k]=0);c.G=c.G||0;return c;};
-function cotaPos(g){const n=g.settings.slots;if(n<4)return null;if(g.settings.campo&&n>=11)return {G:1,Z:3,L:2,M:2,A:2};if(g.settings.campo||n>=9)return {G:1,D:3,M:2,A:2};return {G:1,D:1,M:1,A:1};}
+function cotaPos(g){const n=g.settings.slots;if(n<4)return null;if(g.settings.campo&&n>=11)return {G:1,Z:3,L:2,M:2,A:2};if(n>=9)return {G:1,Z:2,L:1,M:2,A:2};if(g.settings.campo)return {G:1,D:3,M:2,A:2};return {G:1,D:1,M:1,A:1};}
 function balanceiaPos(g){
   if(!isFut(g)||g.jogo==="coop"||g.draft)return;
   const Q=cotaPos(g);if(!Q)return;
@@ -8505,6 +8510,8 @@ const A={
   fgols(){const g=cur(),F=g.fut;F.cl=null;F.so="gols";F.modo=F.vel==="passo"?"passo":"auto";save(g);render();},
   fvel(d){const g=cur(),F=g.fut;F.vel=d.v;if(F.modo==="auto"&&d.v==="passo")F.modo="passo";else if(F.modo==="passo"&&d.v!=="passo")F.modo="auto";save(g);render();},
   fprox(){const g=cur(),F=g.fut,j=F.jogos[F.ji];if(!j)return;futBotTat(g,j,F.mi);futAvanca(F,j);save(g);render();},
+  fsty(d){const g=cur(),F=g.fut,j=F.jogos[F.ji];if(!j||F.modo==null||F.modo==="fim"||F.mi>=j.ev.length)return;const s=Number(d.s),p=pl(g,s?j.b:j.a);if(!futHumano(p)||!FEST[d.v])return;j.sty=j.sty||["eq","eq"];if(j.sty[s]===d.v)return;j.sty[s]=d.v;const vis=j.ev.slice(0,F.mi),m=vis.length?vis[vis.length-1].m:0;F.mi+=futReplan(g,j,F.mi,[futEstEv(g,j,s,d.v,m)]);save(g);render();},
+  fesc(d){const g=cur(),F=g.fut,p=g.players[F.vez],es=F.esc[p.id];if(!FEST[d.v])return;es.sty=d.v;save(g);render();},
   ftat(d){const g=cur(),F=g.fut,j=F.jogos[F.ji];if(!j||F.modo==null||F.modo==="fim"||F.mi>=j.ev.length)return;const s=Number(d.s),p=pl(g,s?j.b:j.a);if(!futHumano(p))return;j.tat=j.tat||["eq","eq"];if(j.tat[s]===d.v)return;j.tat[s]=d.v;const vis=j.ev.slice(0,F.mi),m=vis.length?vis[vis.length-1].m:0;F.mi+=futReplan(g,j,F.mi,[futTatEv(g,j,s,d.v,m)]);save(g);render();},
   fpausa(){const g=cur(),F=g.fut;F.modo=F.modo==="auto"?"pausa":"auto";save(g);render();},
   fres(){const g=cur(),F=g.fut,j=F.jogos[F.ji];F.mi=j.ev.length;F.pi=j.pen?j.pen.seq.length:0;F.modo="fim";save(g);render();},
