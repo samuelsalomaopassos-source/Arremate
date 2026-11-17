@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://arremategame.netlify.app/sitemap.xml
