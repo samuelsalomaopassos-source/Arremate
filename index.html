@@ -4948,19 +4948,19 @@ function registraVistos(sess,ids){
 /* futebol: o baú de cada leilão fecha com as posições certas. Goleiros: exatamente um por jogador (3 jogadores = 3 goleiros).
    No modo de montar time, cada um também precisa de defesa, meio e ataque suficientes; o resto fica livre e sorteado. */
 function ajustaElencoFut(deck,np,equipe,campo,fontes,mode,fresh){
-  const hm=fresh?heatOf("futebol"):{},Q=equipe?(campo?{D:3,M:2,A:2}:{D:1,M:1,A:1}):{D:0,M:0,A:0};
-  const grp=id=>{const p=posOf(ITEMS[id]);return p==="Goleiro"?"G":(GRPPOS[p]||"M");};
-  const need={G:Math.min(np,deck.length),D:np*Q.D,M:np*Q.M,A:np*Q.A};
-  let fora={G:[],D:[],M:[],A:[]};
+  const hm=fresh?heatOf("futebol"):{},Q=equipe?(campo?{Z:3,L:2,M:2,A:2}:{D:1,M:1,A:1}):{D:0,M:0,A:0},KS=["G"].concat(Object.keys(Q)),fine=!!(equipe&&campo);
+  const grp=id=>{const p=posOf(ITEMS[id]);return p==="Goleiro"?"G":((fine?GRPF:GRPPOS)[p]||"M");};
+  const need={G:Math.min(np,deck.length)};Object.keys(Q).forEach(k=>need[k]=np*Q[k]);
+  let fora={};KS.forEach(k=>fora[k]=[]);
   const noDeck=new Set(deck);
   const todos=poolFor("futebol",fontes,mode,[]).map(it=>it.id).filter(id=>!noDeck.has(id));
-  ["G","D","M","A"].forEach(k=>{fora[k]=wOrder(todos.filter(id=>grp(id)===k),hm,fresh);});
-  const cnt=()=>{const c={G:0,D:0,M:0,A:0};deck.forEach(id=>c[grp(id)]++);return c;};
+  KS.forEach(k=>{fora[k]=wOrder(todos.filter(id=>grp(id)===k),hm,fresh);});
+  const cnt=()=>{const c={};KS.forEach(k=>c[k]=0);deck.forEach(id=>c[grp(id)]++);return c;};
   /* goleiros além do número de jogadores saem; os que faltam entram */
   for(let guard=0;guard<80;guard++){
     const c=cnt();let k=null,troca=null;
-    if(c.G>need.G){troca="G";k=["D","M","A"].sort((x,y)=>(c[x]-need[x])-(c[y]-need[y]))[0];}
-    else{const falta=["G","D","M","A"].find(z=>c[z]<need[z]);if(!falta)break;k=falta;troca=["G","D","M","A"].filter(z=>c[z]>need[z]).sort((x,y)=>(c[y]-need[y])-(c[x]-need[x]))[0];}
+    if(c.G>need.G){troca="G";k=KS.filter(z=>z!=="G").sort((x,y)=>(c[x]-need[x])-(c[y]-need[y]))[0];}
+    else{const falta=KS.find(z=>c[z]<need[z]);if(!falta)break;k=falta;troca=KS.filter(z=>c[z]>need[z]).sort((x,y)=>(c[y]-need[y])-(c[x]-need[x]))[0];}
     if(!troca||!fora[k].length)break;
     const idx=shuffle(deck.map((id,i)=>i).filter(i=>grp(deck[i])===troca))[0];
     if(idx==null)break;deck[idx]=fora[k].shift();
@@ -7554,15 +7554,17 @@ function sorteiaFalta(g){
   let pool=shuffle(g.unsold.filter(id=>!tem.has(id)));g.auto=[];
   g.players.filter(p=>!p.vil&&slotsLeft(g,p)>0).forEach(p=>{
     const ids=[];
-    while(slotsLeft(g,p)>0&&pool.length){let k=0;const Q=isFut(g)?cotaPos(g):null;if(Q){const cnt={G:0,D:0,M:0,A:0};p.roster.forEach(r=>cnt[grpOf(r.id)]++);const fl=["G","D","M","A"].find(z=>cnt[z]<Q[z]);if(fl){const j=pool.findIndex(x=>grpOf(x)===fl);if(j>=0)k=j;}}const id=pool.splice(k,1)[0],pr=Math.max(0,Math.min(sb,p.budget));p.roster.push({id:id,price:pr,auto:1});p.budget-=pr;ids.push(id);}
+    while(slotsLeft(g,p)>0&&pool.length){let k=0;const Q=isFut(g)?cotaPos(g):null;if(Q){const cnt=cnt0(Q);p.roster.forEach(r=>cnt[grpOf(r.id,Q)]=(cnt[grpOf(r.id,Q)]||0)+1);const fl=Object.keys(Q).find(z=>cnt[z]<Q[z]);if(fl){const j=pool.findIndex(x=>grpOf(x,Q)===fl);if(j>=0)k=j;}}const id=pool.splice(k,1)[0],pr=Math.max(0,Math.min(sb,p.budget));p.roster.push({id:id,price:pr,auto:1});p.budget-=pr;ids.push(id);}
     if(ids.length)g.auto.push({pid:p.id,ids:ids});
   });
   g.unsold=g.unsold.filter(id=>!g.auto.some(a=>a.ids.indexOf(id)>=0));
 }
 /* futebol: todo time precisa fechar com as posições certas (1 goleiro, defesa, meio e ataque); o que faltar é trocado por sorteio */
 const GRPPOS={Goleiro:"G",Zagueiro:"D",Lateral:"D",Volante:"D","Meio-campista":"M",Meia:"M","Meia-atacante":"M",Ponta:"A",Atacante:"A"};
-const grpOf=id=>GRPPOS[posOf(ITEMS[id])]||"M";
-function cotaPos(g){const n=g.settings.slots;if(n<4)return null;if(g.settings.campo||n>=9)return {G:1,D:3,M:2,A:2};return {G:1,D:1,M:1,A:1};}
+const GRPF={Goleiro:"G",Zagueiro:"Z",Lateral:"L",Volante:"M","Meio-campista":"M",Meia:"M","Meia-atacante":"M",Ponta:"A",Atacante:"A"};
+const grpOf=(id,Q)=>((Q&&Q.Z!==undefined?GRPF:GRPPOS)[posOf(ITEMS[id])])||"M";
+const cnt0=Q=>{const c={};Object.keys(Q).forEach(k=>c[k]=0);c.G=c.G||0;return c;};
+function cotaPos(g){const n=g.settings.slots;if(n<4)return null;if(g.settings.campo&&n>=11)return {G:1,Z:3,L:2,M:2,A:2};if(g.settings.campo||n>=9)return {G:1,D:3,M:2,A:2};return {G:1,D:1,M:1,A:1};}
 function balanceiaPos(g){
   if(!isFut(g)||g.jogo==="coop"||g.draft)return;
   const Q=cotaPos(g);if(!Q)return;
@@ -7572,11 +7574,11 @@ function balanceiaPos(g){
   g.players.forEach(p=>{
     if(p.vil)return;
     for(let guard=0;guard<12;guard++){
-      const cnt={G:0,D:0,M:0,A:0};p.roster.forEach(r=>cnt[grpOf(r.id)]++);
-      const falta=["G","D","M","A"].find(k=>cnt[k]<Q[k]);if(!falta)break;
-      const cand=pool.find(id=>grpOf(id)===falta);if(!cand)break;
+      const cnt=cnt0(Q);p.roster.forEach(r=>cnt[grpOf(r.id,Q)]=(cnt[grpOf(r.id,Q)]||0)+1);
+      const falta=Object.keys(Q).find(k=>cnt[k]<Q[k]);if(!falta)break;
+      const cand=pool.find(id=>grpOf(id,Q)===falta);if(!cand)break;
       /* sai quem sobra: o pior de um grupo que passa da cota (goleiro extra conta como sobra) */
-      const sobras=p.roster.map((r,i)=>({r:r,i:i,k:grpOf(r.id)})).filter(x=>cnt[x.k]>(Q[x.k]||0)&&!x.r.auto&&!x.r.pick).sort((a,b)=>item(g,a.r.id).n-item(g,b.r.id).n);
+      const sobras=p.roster.map((r,i)=>({r:r,i:i,k:grpOf(r.id,Q)})).filter(x=>cnt[x.k]>(Q[x.k]||0)&&!x.r.auto&&!x.r.pick).sort((a,b)=>item(g,a.r.id).n-item(g,b.r.id).n);
       if(!sobras.length)break;
       const out=sobras[0],pr=Math.max(0,Math.min(sb,p.budget+out.r.price));
       p.roster.splice(out.i,1,{id:cand,price:pr,auto:1});p.budget+=out.r.price-pr;
